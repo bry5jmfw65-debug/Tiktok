@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: viralclip-ai
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: STORAGE_ROOT
+        value: /var/data
+      - key: APP_USERNAME
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: TIKTOK_CLIENT_KEY
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_REDIRECT_URI
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+    disk:
+      name: viralclip-data
+      mountPath: /var/data
+      sizeGB: 10
