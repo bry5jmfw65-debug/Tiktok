@@ -123,6 +123,44 @@ def home(user: str = Depends(auth)):
 def list_jobs(user: str = Depends(auth)):
     return jobs()
 
+def remove_job_files(item):
+    candidates = [Path(item.get("path", ""))]
+    candidates.extend(CLIPS / Path(c.get("name", "")).name for c in item.get("clips", []))
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+            if resolved.parent in (UPLOADS.resolve(), CLIPS.resolve()) and resolved.is_file(): resolved.unlink()
+        except (OSError, ValueError): pass
+
+@app.get("/api/storage")
+def storage_status(user: str = Depends(auth)):
+    def folder_bytes(folder):
+        total = 0
+        for p in folder.iterdir():
+            if p.is_file():
+                try: total += p.stat().st_size
+                except OSError: pass
+        return total
+    return {"uploads_bytes": folder_bytes(UPLOADS), "clips_bytes": folder_bytes(CLIPS), "jobs": len(jobs())}
+
+@app.delete("/api/jobs/{jid}")
+def delete_job(jid: str, user: str = Depends(auth)):
+    data, item = get_item(jid)
+    remove_job_files(item)
+    save_jobs([x for x in data if x.get("id") != jid])
+    return {"ok": True, "message": "Video and its generated clips deleted."}
+
+@app.delete("/api/library")
+def clear_library(user: str = Depends(auth)):
+    for item in jobs(): remove_job_files(item)
+    save_jobs([])
+    for folder in (UPLOADS, CLIPS):
+        for path in folder.iterdir():
+            if path.is_file():
+                try: path.unlink()
+                except OSError: pass
+    return {"ok": True, "message": "All videos and generated clips were cleared. TikTok connection was preserved."}
+
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...), user: str = Depends(auth)):
     ext = Path(file.filename or "video.mp4").suffix.lower()
