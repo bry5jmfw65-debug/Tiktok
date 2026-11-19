@@ -178,8 +178,10 @@ def youtube(url: str = Form(...), user: str = Depends(auth)):
                 "ViralClip AI cannot access private or verification-gated videos. "
             )
         else:
-            message = "YouTube import failed. If you have permission to reuse this video, "
-                      "try again later or upload the original video file. Details: "
+            message = (
+                "YouTube import failed. If you have permission to reuse this video, "
+                "try again later or upload the original video file. Details: "
+            )
         raise HTTPException(400, message + detail[-700:])
     item = {"id": jid, "source": url, "path": str(dest), "status": "uploaded",
             "created": int(time.time()), "clips": []}
