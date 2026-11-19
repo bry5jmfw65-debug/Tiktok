@@ -157,12 +157,30 @@ def youtube(url: str = Form(...), user: str = Depends(auth)):
     jid = uuid.uuid4().hex[:10]
     dest = UPLOADS / f"{jid}.mp4"
     try:
-        run(["yt-dlp", "--no-playlist", "--max-filesize", "1G", "-f",
+        # Current yt-dlp plus its supported EJS component handles YouTube's
+        # changing player challenges more reliably. It cannot authenticate
+        # private/age-gated videos or override YouTube account restrictions.
+        run(["yt-dlp", "--no-playlist", "--max-filesize", "1G",
+             "--retries", "3", "--extractor-retries", "3", "--fragment-retries", "3",
+             "--socket-timeout", "30", "--remote-components", "ejs:github", "-f",
              "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b", "--merge-output-format", "mp4",
              "-o", str(dest), url], timeout=1800)
     except Exception as e:
         dest.unlink(missing_ok=True)
-        raise HTTPException(400, "Could not import this video. Use content you own or have permission to reuse. " + str(e))
+        detail = str(e)
+        lowered = detail.lower()
+        if "sign in to confirm" in lowered or "http error 403" in lowered or "not a bot" in lowered:
+            message = (
+                "YouTube refused this server download (403 / sign-in verification). "
+                "This is a YouTube access restriction, not an AI-key problem. "
+                "For this video, download the original from your own YouTube Studio "
+                "or get a copy from its creator with permission, then use Upload video. "
+                "ViralClip AI cannot access private or verification-gated videos. "
+            )
+        else:
+            message = "YouTube import failed. If you have permission to reuse this video, "
+                      "try again later or upload the original video file. Details: "
+        raise HTTPException(400, message + detail[-700:])
     item = {"id": jid, "source": url, "path": str(dest), "status": "uploaded",
             "created": int(time.time()), "clips": []}
     data = jobs()
